@@ -1259,12 +1259,10 @@
 ,,,       
 ,,,       ;* Program Variables Definitions 
 ,,,       .def temp =r16 ; Temporary Register example 
-,,,       .def szamlalo = r17 //a futofeny sebessegehez
+,,,       .def szamlalo = r17
 ,,,       .def switch = r18
-,,,       .def led = r19 //ledek
-,,,       .def uzem = r20 //ejszaka, nappal
-,,,       .def gomb = r21 //btn0
-,,,       .def state = r22 //kikapcsolva, futofeny, minden vilagit
+,,,       .def led = r19
+,,,       .def uzem = r20
 ,,,       
 ,,,       ;*************************************************************** 
 ,,,       ;* Reset & Interrupt Vectors  
@@ -1285,8 +1283,8 @@
 000030,940C,,       jmp T1CM_IT             ; Timer1 Compare Match A Handler 
 000034,940C,,       jmp DUMMY_IT    ; Timer1 Compare Match B Handler 
 000038,940C,,       jmp DUMMY_IT    ; Timer1 Overflow Handler 
-00003C,940C,,       jmp T0CM_IT             ; Timer0 Compare Match Handler 
-000040,940C,,       jmp T0IF_IT             ; Timer0 Overflow Handler 
+00003C,940C,,       jmp DUMMY_IT    ; Timer0 Compare Match Handler 
+000040,940C,,       jmp DUMMY_IT    ; Timer0 Overflow Handler 
 000044,940C,,       jmp DUMMY_IT    ; SPI Transfer Complete Handler 
 000048,940C,,       jmp DUMMY_IT    ; USART0 RX Complete Handler 
 00004C,940C,,       jmp DUMMY_IT    ; USART0 Data Register Empty Hanlder 
@@ -1337,7 +1335,6 @@
 ,,,       
 ,,,       M_INIT:
 ,,,       ;< ki- és bemenetek inicializálása stb > 
-,,,              //10HZ
 00009E,E000,,       ldi temp, 0x00
 0000A0,BD0F,,       out TCCR1A, temp
 0000A2,E00D,,       ldi temp, 0b00001101
@@ -1350,25 +1347,17 @@
 0000B0,BD0D,,       out TCNT1H, temp
 0000B2,BD0C,,       out TCNT1L, temp
 ,,,       
-,,,              //FAST PWM
+0000B4,E100,,       ldi temp, 0b00010000
+0000B6,BF07,,       out TIMSK, temp
 ,,,       
-0000B4,E70B,,       ldi temp, 123   //a pdf szerint kb. fel fenyero
-0000B6,BF01,,       out OCR0, temp
-0000B8,E40F,,       ldi temp, 0b01001111 //FAST PWM
-0000BA,BF03,,       out TCCR0, temp
-0000BC,E103,,       ldi temp, 0b00010011
-0000BE,BF07,,       out TIMSK, temp
-,,,       
-0000C0,E000,,       ldi temp, 0
-0000C2,9300,,       sts DDRG, temp
-,,,              //a ledek inicializalasa
-0000C6,EF0F,,       ldi temp, 0xFF
-0000C8,BB04,,       out DDRC, temp
-0000CA,E131,,       ldi led, 0b00010001
-0000CC,E060,,       ldi state, 0
-0000CE,ED0F,,       ldi temp, 0b11011111
-0000D0,B902,,       out DDRE, temp
-0000D2,E050,,       ldi gomb, 0
+0000B8,E000,,       ldi temp, 0
+0000BA,9300,,       sts DDRG, temp
+,,,              ;a ledek inicializalasa
+0000BE,EF0F,,       ldi temp, 0xFF
+0000C0,BB04,,       out DDRC, temp
+0000C2,E131,,       ldi led, 0b00010001
+0000C4,BB35,,       out PORTC, led
+0000C6,9478,,       sei
 ,,,              
 ,,,       
 ,,,       
@@ -1378,147 +1367,83 @@
 ,,,       M_LOOP: 
 ,,,       
 ,,,       ;< fõciklus >
-0000D4,940E,,       call KAPCSOLO //ki, be, fullfény
-0000D8,940E,,       call UZEMSZAK
-,,,         FOLYTATAS:
-0000DC,9120,,       lds switch, PING
-0000E0,712B,,       andi switch, 0b00011011
-0000E2,2F02,,       mov temp, switch
-0000E4,7100,,       andi temp, 0b00010000
-0000E6,9506,,       lsr temp
-0000E8,9506,,       lsr temp
-0000EA,702B,,       andi switch, 0b00001011
-0000EC,2B20,,       or switch, temp
-0000EE,940C,,       jmp M_LOOP ; Endless Loop  
+0000C8,9120,,       lds switch, PING
+0000CC,712B,,       andi switch, 0b00011011
+0000CE,2F02,,       mov temp, switch
+0000D0,7100,,       andi temp, 0b00010000
+0000D2,9506,,       lsr temp
+0000D4,9506,,       lsr temp
+0000D6,702B,,       andi switch, 0b00001011
+0000D8,2B20,,       or switch, temp
+0000DA,B105,,       in temp, ADCH
+0000DC,FD07,,       sbrc temp, 7 ;51%-os valasztovonal
+0000DE,E040,,       ldi uzem, 0
+0000E0,FF07,,       sbrs temp, 7
+0000E2,E041,,       ldi uzem, 1
+,,,       
+0000E4,940C,,       jmp M_LOOP ; Endless Loop  
 ,,,       
 ,,,       
 ,,,       ;*************************************************************** 
 ,,,       ;* Subroutines, Interrupt routines
 ,,,       
-,,,       EJSZAKA:
-0000F2,E103,,       ldi temp, 0b00010011
-0000F4,BF07,,       out TIMSK, temp
-0000F6,940C,,       jmp FOLYTATAS
-,,,       
-,,,       UZEMSZAK:
-0000FA,B105,,       in temp, ADCH
-0000FC,FD07,,       sbrc temp, 7 //51%-os valasztovonal
-0000FE,E040,,       ldi uzem, 0 //ejszaka betöltese
-000100,FF07,,       sbrs temp, 7 
-000102,E041,,       ldi uzem, 1     //nappal betöltese
-000104,FD40,,       sbrc uzem, 0
-000106,940C,,       jmp EJSZAKA
-00010A,E100,,       ldi temp, 0b00010000
-00010C,BF07,,       out TIMSK, temp
-00010E,9508,,       ret
-,,,       
-,,,       KAPCSOLO: //btn0-al való léptetés,regiszteren keresztül ellenõrzive a folyamatos nyomás elkerülésére (h csak 1-et lépjen)
-000110,0F55,,       lsl gomb
-000112,B101,,       in temp, PINE
-000114,FB05,,       bst temp, 5
-000116,F950,,       bld gomb, 0
-000118,7053,,       andi gomb, 0b00000011
-00011A,3052,,       cpi gomb, 0b00000010
-00011C,F0A9,,       breq STATE_ALLITAS //ha meg lett nyomva
-00011E,940E,,       call CHECK_STATE
-000122,9508,,       ret
-,,,       
-,,,       CHECK_STATE: //a STATE-nek megfeleloen beállítjuk
-000124,3060,,       cpi state, 0
-000126,F021,,       breq KIKAPCSOLVA
-000128,3061,,       cpi state, 1
-00012A,F031,,       breq FUTOFENYBEN
-00012C,3062,,       cpi state, 2
-00012E,F031,,       breq MINDEN
-,,,         KIKAPCSOLVA:
-000130,E000,,       ldi temp, 0
-000132,BB04,,       out DDRC, temp
-000134,940C,,       jmp M_LOOP
-,,,         FUTOFENYBEN:
-000138,9478,,       sei //itt bekapcsoljuk, eddig nem kellett
-00013A,9508,,       ret
-,,,         MINDEN:
-00013C,94F8,,       cli //letiltjuk az it-ket
-00013E,EF0F,,       ldi temp, 0xFF
-000140,BB04,,       out DDRC, temp
-000142,BB05,,       out PORTC, temp
-000144,940C,,       jmp M_LOOP //mert a tobbi funkcio ilyenkor felesleges
-,,,       
-,,,       STATE_ALLITAS: //allitjuk a STATE-ET
-000148,3060,,       cpi state, 0 //ki van kapcsolva
-00014A,F021,,       breq KIKAPCSOLT
-00014C,3061,,       cpi state, 1 //futofenyben volt
-00014E,F029,,       breq FUTOFENY
-000150,3062,,       cpi state, 2
-000152,F031,,       breq ALL
-,,,         KIKAPCSOLT:
-000154,9563,,    inc state
-000156,940C,,       jmp M_LOOP
-,,,         FUTOFENY:
-00015A,9563,,       inc state
-00015C,940C,,       jmp M_LOOP
-,,,         ALL:
-000160,E060,,       ldi state, 0
-000162,940C,,       jmp M_LOOP
-,,,              
-,,,       
 ,,,       T1CM_IT:
-000166,930F,,       push temp
-000168,B70F,,       in temp,SREG
-00016A,930F,,       push temp
+0000E8,930F,,       push temp
+0000EA,B70F,,       in temp,SREG
+0000EC,930F,,       push temp
 ,,,       
-,,,              //törzs
-00016C,9513,,       inc szamlalo
-00016E,940E,,       call COMPARE
+,,,              ;törzs
+0000EE,9513,,       inc szamlalo
+0000F0,940E,,       call COMPARE
 ,,,       
-000172,910F,,       pop temp
-000174,BF0F,,       out SREG, temp
-000176,910F,,       pop temp
-000178,9518,,       reti
+0000F4,910F,,       pop temp
+0000F6,BF0F,,       out SREG, temp
+0000F8,910F,,       pop temp
+0000FA,9518,,       reti
 ,,,       
 ,,,       COMPARE:
-00017A,6F20,,       ori switch, 0b11110000
-00017C,9520,,       com switch
-00017E,3020,,       cpi switch, 0 //ha a switch 0 (tehat 100msec)
-000180,F011,,       breq FENYSOR //akkor mehet a leptetes
-000182,1321,,       cpse switch, szamlalo //egyebkent ellenoriz
-000184,9508,,       ret     //es ha nem egyezik meg a 2, akkor visszater
-,,,       
-,,,       FENYSOR:       //ha megegyezik, akkor leptet
-000186,1F33,,       ROL led;                megy balra a led reg-ben az 1-es
-000188,F018,,       brcs UGRAS;     ujra leptetjuk ha a carry be van utve es a branch mar nem fog latszodni mert a ROL kiuti a carryt
-,,,         VISSZA:
-00018A,BB35,,       out PORTC, led
-00018C,E010,,       ldi szamlalo, 0 //lenullazzuk, hogy a szamlalas mukodjon
-00018E,9508,,       ret
+0000FC,6F20,,       ori switch, 0b11110000
+0000FE,9520,,       com switch
+000100,3020,,       cpi switch, 0 ;ha a switch 0 (tehat 100msec)
+000102,F011,,       breq FENYSOR ;akkor mehet a leptetes
+000104,1321,,       cpse switch, szamlalo ;egyebkent ellenoriz
+000106,9508,,       ret     ;es ha nem egyezik meg a 2, akkor visszater
+,,,       FENYSOR:       ;ha megegyezik, akkor leptet
+000108,1F33,,       ROL led;                megy balra a led reg-ben az 1-es
+00010A,F018,,       brcs UGRAS;     ujra leptetjuk ha a carry be van utve es a branch mar nem fog latszodni mert a ROL kiuti a carryt
+,,,       VISSZA:
+00010C,BB35,,       out PORTC, led
+00010E,E010,,       ldi szamlalo, 0 ;lenullazzuk, hogy a szamlalas mukodjon
+000110,9508,,       ret
 ,,,       
 ,,,       UGRAS:
-000190,9488,,       clc
-000192,9533,,       inc led
-000194,E010,,       ldi szamlalo, 0
-000196,940C,,       jmp VISSZA
+000112,9488,,       clc
+000114,9533,,       inc led
+000116,E010,,       ldi szamlalo, 0
+000118,940C,,       jmp VISSZA
 ,,,       
-,,,       T0CM_IT:  // a pdf alapjan
-00019A,930F,,       push temp
-00019C,B70F,,       in       temp,SREG
-00019E,930F,,       push temp
+,,,       T0CM_IT: 
+00011C,930F,,       push temp
+00011E,B70F,,       in temp,SREG
+000120,930F,,       push temp
 ,,,       
-0001A0,E000,,       ldi temp, 0
-0001A2,940C,,       jmp END_IT
+,,,              
+,,,       
+000122,910F,,       pop temp
+000124,BF0F,,       out SREG, temp
+000126,910F,,       pop temp
+000128,9518,,       reti
 ,,,       
 ,,,       T0IF_IT:
-0001A6,930F,,       push temp
-0001A8,B70F,,       in      temp,SREG
-0001AA,930F,,       push temp
+00012A,930F,,       push temp
+00012C,B70F,,       in temp,SREG
+00012E,930F,,       push temp
 ,,,       
-0001AC,2F03,,       mov temp, led
-0001AE,7F00,,       andi temp, 0b11110000 //ejszaka csak a bal oldali vilagit
-,,,       END_IT:
-0001B0,BB04,,       out DDRC, temp
+000130,E001,,       ldi temp, 0x01  
 ,,,       
-0001B2,910F,,       pop temp
-0001B4,BF0F,,       out SREG, temp
-0001B6,910F,,       pop temp
-0001B8,9518,,       reti
+000132,910F,,       pop temp
+000134,BF0F,,       out SREG, temp
+000136,910F,,       pop temp
+000138,9518,,       reti
 ,,,
 ,,,

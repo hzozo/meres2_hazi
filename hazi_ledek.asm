@@ -41,12 +41,10 @@
 
 ;* Program Variables Definitions 
 .def temp =r16 ; Temporary Register example 
-.def szamlalo = r17 ;a futofeny sebessegehez
+.def szamlalo = r17
 .def switch = r18
-.def led = r19 ;ledek
-.def uzem = r20 ;ejszaka, nappal
-.def gomb = r21 ;btn0
-.def state = r22 ;kikapcsolva, futofeny, minden vilagit
+.def led = r19
+.def uzem = r20
 
 ;*************************************************************** 
 ;* Reset & Interrupt Vectors  
@@ -67,8 +65,8 @@
 	jmp T1CM_IT		; Timer1 Compare Match A Handler 
 	jmp DUMMY_IT	; Timer1 Compare Match B Handler 
 	jmp DUMMY_IT	; Timer1 Overflow Handler 
-	jmp T0CM_IT		; Timer0 Compare Match Handler 
-	jmp T0IF_IT		; Timer0 Overflow Handler 
+	jmp DUMMY_IT	; Timer0 Compare Match Handler 
+	jmp DUMMY_IT	; Timer0 Overflow Handler 
 	jmp DUMMY_IT	; SPI Transfer Complete Handler 
 	jmp DUMMY_IT	; USART0 RX Complete Handler 
 	jmp DUMMY_IT	; USART0 Data Register Empty Hanlder 
@@ -119,7 +117,6 @@ RESET:
 
 M_INIT:
 ;< ki- és bemenetek inicializálása stb > 
-	;10HZ
 	ldi temp, 0x00
 	out TCCR1A, temp
 	ldi temp, 0b00001101
@@ -132,13 +129,7 @@ M_INIT:
 	out TCNT1H, temp
 	out TCNT1L, temp
 
-	;FAST PWM
-
-	ldi temp, 123	;a pdf szerint kb. fel fenyero
-	out OCR0, temp
-	ldi temp, 0b01001111 ;FAST PWM
-	out TCCR0, temp
-	ldi temp, 0b00010011
+	ldi temp, 0b00010000
 	out TIMSK, temp
 
 	ldi temp, 0
@@ -147,10 +138,8 @@ M_INIT:
 	ldi temp, 0xFF
 	out DDRC, temp
 	ldi led, 0b00010001
-	ldi state, 0
-	ldi temp, 0b11011111
-	out DDRE, temp
-	ldi gomb, 0
+	out PORTC, led
+	sei
 	
 
 
@@ -160,9 +149,6 @@ M_INIT:
 M_LOOP: 
 
 ;< fõciklus >
-	call KAPCSOLO ;ki, be, fullfény
-	call UZEMSZAK
-  FOLYTATAS:
 	lds switch, PING
 	andi switch, 0b00011011
 	mov temp, switch
@@ -171,78 +157,17 @@ M_LOOP:
 	lsr temp
 	andi switch, 0b00001011
 	or switch, temp
+	in temp, ADCH
+	sbrc temp, 7 ;51%-os valasztovonal
+	ldi uzem, 0
+	sbrs temp, 7
+	ldi uzem, 1
+
 	jmp M_LOOP ; Endless Loop  
 
 
 ;*************************************************************** 
 ;* Subroutines, Interrupt routines
-
-EJSZAKA:
-	ldi temp, 0b00010011
-	out TIMSK, temp
-	jmp FOLYTATAS
-
-UZEMSZAK:
-	in temp, ADCH
-	sbrc temp, 7 ;51%-os valasztovonal
-	ldi uzem, 0 ;ejszaka betöltese
-	sbrs temp, 7 
-	ldi uzem, 1	;nappal betöltese
-	sbrc uzem, 0
-	jmp EJSZAKA
-	ldi temp, 0b00010000
-	out TIMSK, temp
-	ret
-
-KAPCSOLO: ;pergésmentesítés
-	lsl gomb
-	in temp, PINE
-	bst temp, 5
-	bld gomb, 0
-	andi gomb, 0b00000011
-	cpi gomb, 0b00000010
-	breq STATE_ALLITAS ;ha meg lett nyomva
-	call CHECK_STATE
-	ret
-
-CHECK_STATE: ;a STATE-nek megfeleloen beállítjuk
-	cpi state, 0
-	breq KIKAPCSOLVA
-	cpi state, 1
-	breq FUTOFENYBEN
-	cpi state, 2
-	breq MINDEN
-  KIKAPCSOLVA:
-  	ldi temp, 0
-	out DDRC, temp
-  	jmp M_LOOP
-  FUTOFENYBEN:
-  	sei ;itt bekapcsoljuk, eddig nem kellett
-  	ret
-  MINDEN:
-	cli ;letiltjuk az it-ket
-  	ldi temp, 0xFF
-	out DDRC, temp
-	out PORTC, temp
-	jmp M_LOOP ;mert a tobbi funkcio ilyenkor felesleges
-
-STATE_ALLITAS: ;allitjuk a STATE-ET
-	cpi state, 0 ;ki van kapcsolva
-	breq KIKAPCSOLT
-	cpi state, 1 ;futofenyben volt
-	breq FUTOFENY
-	cpi state, 2
-	breq ALL
-  KIKAPCSOLT:
-    inc state
-	jmp M_LOOP
-  FUTOFENY:
-  	inc state
-	jmp M_LOOP
-  ALL: ;minden led vilagit
-	ldi state, 0
-	jmp M_LOOP
-	
 
 T1CM_IT:
 	push temp
@@ -265,37 +190,39 @@ COMPARE:
 	breq FENYSOR ;akkor mehet a leptetes
 	cpse switch, szamlalo ;egyebkent ellenoriz
 	ret	;es ha nem egyezik meg a 2, akkor visszater
-
 FENYSOR:	;ha megegyezik, akkor leptet
 	ROL led;		megy balra a led reg-ben az 1-es
 	brcs UGRAS;	ujra leptetjuk ha a carry be van utve es a branch mar nem fog latszodni mert a ROL kiuti a carryt
-  VISSZA:
+VISSZA:
 	out PORTC, led
 	ldi szamlalo, 0	;lenullazzuk, hogy a szamlalas mukodjon
 	ret
 
 UGRAS:
 	clc
-	inc led; inkerementálom, hiszen akárhol is állt, az páros volt, és így a 0-ba fog bejönni az 1-es
+	inc led
+	ldi szamlalo, 0
 	jmp VISSZA
 
-T0CM_IT:  ; a pdf alapjan
+T0CM_IT: 
 	push temp
-	in	 temp,SREG
-	push temp
-
-	ldi temp, 0 ;kapcsolja ki
-	jmp END_IT
-
-T0IF_IT: ;kapcsolja be
-	push temp
-	in	temp,SREG
+	in temp,SREG
 	push temp
 
-	mov temp, led
-	andi temp, 0b11110000 ;ejszaka csak a bal oldali vilagit
-END_IT:
-	out DDRC, temp
+	
+
+	pop temp
+	out SREG, temp
+	pop temp
+	reti
+
+T0IF_IT:
+	push temp
+	in temp,SREG
+	push temp
+
+	ldi temp, 0x01	
+
 	pop temp
 	out SREG, temp
 	pop temp
