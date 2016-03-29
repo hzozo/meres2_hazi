@@ -22,8 +22,8 @@
   <RESET><FILE>C:\Users\Zozo\Desktop\dev\meres\2\hazi.asm</FILE><LINE>112</LINE></RESET>
   <DUMMY_IT><FILE>C:\Users\Zozo\Desktop\dev\meres\2\hazi.asm</FILE><LINE>99</LINE></DUMMY_IT>
   <T1CM_IT><FILE>C:\Users\Zozo\Desktop\dev\meres\2\hazi.asm</FILE><LINE>247</LINE></T1CM_IT>
-  <T0CM_IT><FILE>C:\Users\Zozo\Desktop\dev\meres\2\hazi.asm</FILE><LINE>283</LINE></T0CM_IT>
-  <T0IF_IT><FILE>C:\Users\Zozo\Desktop\dev\meres\2\hazi.asm</FILE><LINE>291</LINE></T0IF_IT>
+  <T0CM_IT><FILE>C:\Users\Zozo\Desktop\dev\meres\2\hazi.asm</FILE><LINE>282</LINE></T0CM_IT>
+  <T0IF_IT><FILE>C:\Users\Zozo\Desktop\dev\meres\2\hazi.asm</FILE><LINE>290</LINE></T0IF_IT>
   <DUMMY_LOOP><FILE>C:\Users\Zozo\Desktop\dev\meres\2\hazi.asm</FILE><LINE>104</LINE></DUMMY_LOOP>
   <M_INIT><FILE>C:\Users\Zozo\Desktop\dev\meres\2\hazi.asm</FILE><LINE>120</LINE></M_INIT>
   <M_LOOP><FILE>C:\Users\Zozo\Desktop\dev\meres\2\hazi.asm</FILE><LINE>160</LINE></M_LOOP>
@@ -43,6 +43,6 @@
   <FENYSOR><FILE>C:\Users\Zozo\Desktop\dev\meres\2\hazi.asm</FILE><LINE>269</LINE></FENYSOR>
   <UGRAS><FILE>C:\Users\Zozo\Desktop\dev\meres\2\hazi.asm</FILE><LINE>277</LINE></UGRAS>
   <VISSZA><FILE>C:\Users\Zozo\Desktop\dev\meres\2\hazi.asm</FILE><LINE>272</LINE></VISSZA>
-  <END_IT><FILE>C:\Users\Zozo\Desktop\dev\meres\2\hazi.asm</FILE><LINE>298</LINE></END_IT>
+  <END_IT><FILE>C:\Users\Zozo\Desktop\dev\meres\2\hazi.asm</FILE><LINE>297</LINE></END_IT>
  </LABELS>
 </ASSEMBLER_INFO>
